@@ -96,8 +96,9 @@ impl HidConnectionManager {
         packet: &[u8; PACKET_LEN],
         timeout_ms: i32,
     ) -> Result<[u8; PACKET_LEN], String> {
+        let expected_cmd = packet[2];
         let mut drain_buf = [0u8; PACKET_LEN];
-        while let Ok(n) = dev.read_timeout(&mut drain_buf, 2) {
+        while let Ok(n) = dev.read_timeout(&mut drain_buf, 5) {
             if n == 0 {
                 break;
             }
@@ -106,25 +107,29 @@ impl HidConnectionManager {
         dev.write(packet)
             .map_err(|e| format!("Erro de escrita HID: {}", e))?;
 
-        let mut last_resp = [0u8; PACKET_LEN];
-        for _ in 0..4 {
+        let mut fallback_resp = [0u8; PACKET_LEN];
+        for _ in 0..8 {
             let mut resp = [0u8; PACKET_LEN];
             match dev.read_timeout(&mut resp, timeout_ms) {
                 Ok(n) if n > 0 => {
-                    last_resp = resp;
                     let norm = crate::protocol::normalize_hid_input_report(&resp);
-                    if packet[2] == 48 {
-                        if norm.len() > 9 && (norm[1] == 48 || (norm[1] == 250 && norm[8] == 208) || norm[8] > 0) {
-                            return Ok(resp);
-                        }
-                    } else if norm.len() > 2 && !(norm[0] == 170 && norm[1] == 250) {
+                    if norm.len() > 2 && norm[0] == 170 && norm[1] == expected_cmd {
                         return Ok(resp);
                     }
+                    if expected_cmd == 48
+                        && norm.len() > 10
+                        && norm[0] == 170
+                        && norm[1] == 250
+                        && norm[8] == 208
+                    {
+                        return Ok(resp);
+                    }
+                    fallback_resp = resp;
                 }
                 _ => break,
             }
         }
-        Ok(last_resp)
+        Ok(fallback_resp)
     }
 
     fn write_fast(inner: &mut ManagerInner, packet: &[u8; PACKET_LEN]) -> Result<(), String> {
