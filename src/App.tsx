@@ -186,6 +186,26 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const btn = buttons[selectedBtnIndex];
+    if (!btn) return;
+    if (btn.type === 16 || btn.type === 64) {
+      setKeyAssignTab("keyboard");
+      const mods = btn.code1;
+      setModCtrl((mods & 1) !== 0 || ((mods >> 4) & 1) !== 0);
+      setModShift(((mods >> 1) & 1) !== 0 || ((mods >> 5) & 1) !== 0);
+      setModAlt(((mods >> 2) & 1) !== 0 || ((mods >> 6) & 1) !== 0);
+      setModWin(((mods >> 3) & 1) !== 0 || ((mods >> 7) & 1) !== 0);
+      if (btn.code2 !== 0) {
+        setSelectedHidKey(btn.code2);
+      }
+    } else if (btn.type === 48) {
+      setKeyAssignTab("media");
+    } else {
+      setKeyAssignTab("mouse");
+    }
+  }, [selectedBtnIndex, buttons]);
+
+  useEffect(() => {
     if (!listeningKey) return;
     const onKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
@@ -323,7 +343,7 @@ export function App() {
         ? {
             index: i,
             name: label,
-            type: 64,
+            type: 16,
             code1: modMask,
             code2: selectedHidKey,
             code3: 0,
