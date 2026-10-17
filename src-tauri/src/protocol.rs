@@ -429,7 +429,8 @@ pub fn decode_keys(raw_resp: &[u8]) -> Vec<ButtonAssignment> {
     let slice = &resp[8..];
     let mut out = Vec::with_capacity(6);
     for i in 0..6 {
-        let r#type = slice[4 * i];
+        let raw_type = slice[4 * i];
+        let r#type = if raw_type == 64 { 16 } else { raw_type };
         let code1 = slice[4 * i + 1];
         let code2 = slice[4 * i + 2];
         let code3 = slice[4 * i + 3];
@@ -501,8 +502,9 @@ pub fn encode_set_keys(keys: &[ButtonAssignment]) -> [u8; PACKET_LEN] {
         if n == 0 && key.r#type == 32 && key.code1 == 0 {
             continue;
         }
+        let safe_type = if key.r#type == 64 { 16 } else { key.r#type };
         let base = 9 + 4 * n;
-        pkt[base] = key.r#type;
+        pkt[base] = safe_type;
         pkt[base + 1] = key.code1;
         pkt[base + 2] = key.code2;
         pkt[base + 3] = key.code3;
