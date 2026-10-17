@@ -96,7 +96,6 @@ impl HidConnectionManager {
         packet: &[u8; PACKET_LEN],
         timeout_ms: i32,
     ) -> Result<[u8; PACKET_LEN], String> {
-        let expected_cmd = packet[2];
         let mut drain_buf = [0u8; PACKET_LEN];
         while let Ok(n) = dev.read_timeout(&mut drain_buf, 2) {
             if n == 0 {
@@ -114,7 +113,11 @@ impl HidConnectionManager {
                 Ok(n) if n > 0 => {
                     last_resp = resp;
                     let norm = crate::protocol::normalize_hid_input_report(&resp);
-                    if norm.len() > 2 && norm[1] == expected_cmd {
+                    if packet[2] == 48 {
+                        if norm.len() > 9 && (norm[1] == 48 || (norm[1] == 250 && norm[8] == 208) || norm[8] > 0) {
+                            return Ok(resp);
+                        }
+                    } else if norm.len() > 2 && !(norm[0] == 170 && norm[1] == 250) {
                         return Ok(resp);
                     }
                 }
