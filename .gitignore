@@ -1,0 +1,8 @@
+target/
+node_modules/
+dist/
+dist-portable/
+*.zip
+*.exe
+*.dll
+.DS_Store
