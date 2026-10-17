@@ -329,26 +329,31 @@ pub fn decode_config(raw_resp: &[u8]) -> MouseConfig {
     {
         return MouseConfig::default();
     }
+    let dpi1 = u16::from_le_bytes([resp[13], resp[14]]);
+    if !(200..=12000).contains(&dpi1) {
+        return MouseConfig::default();
+    }
+    let count = resp[11].clamp(1, 6);
     MouseConfig {
-        light_mode: resp[9],
-        report_rate: resp[10].saturating_sub(1),
-        dpi_index: resp[12].saturating_sub(1),
-        dpi_flag: resp[11],
-        dpi_count: resp[11],
-        dpi1_value: u16::from_le_bytes([resp[13], resp[14]]),
-        dpi2_value: u16::from_le_bytes([resp[15], resp[16]]),
-        dpi3_value: u16::from_le_bytes([resp[17], resp[18]]),
-        dpi4_value: u16::from_le_bytes([resp[19], resp[20]]),
-        dpi5_value: u16::from_le_bytes([resp[21], resp[22]]),
-        dpi6_value: u16::from_le_bytes([resp[23], resp[24]]),
-        scroll_flag: resp[48],
-        lod_value: resp[49],
+        light_mode: resp[9].min(6),
+        report_rate: resp[10].saturating_sub(1).min(3),
+        dpi_index: resp[12].saturating_sub(1).min(count - 1),
+        dpi_flag: count,
+        dpi_count: count,
+        dpi1_value: dpi1,
+        dpi2_value: u16::from_le_bytes([resp[15], resp[16]]).clamp(200, 12000),
+        dpi3_value: u16::from_le_bytes([resp[17], resp[18]]).clamp(200, 12000),
+        dpi4_value: u16::from_le_bytes([resp[19], resp[20]]).clamp(200, 12000),
+        dpi5_value: u16::from_le_bytes([resp[21], resp[22]]).clamp(200, 12000),
+        dpi6_value: u16::from_le_bytes([resp[23], resp[24]]).clamp(200, 12000),
+        scroll_flag: resp[48].min(1),
+        lod_value: resp[49].clamp(1, 2),
         sensor_flag: resp[50],
-        key_respond: resp[51],
-        sleep_light: resp[52],
+        key_respond: resp[51].clamp(2, 30),
+        sleep_light: if resp[52] == 0 { 10 } else { resp[52] },
         highspeed_mode: resp[53],
-        wakeup_flag: resp[55] & 0x0F,
-        move_light_flag: (resp[55] >> 4) & 0x0F,
+        wakeup_flag: (resp[55] & 0x0F).min(1),
+        move_light_flag: ((resp[55] >> 4) & 0x0F).min(1),
     }
 }
 
@@ -427,6 +432,9 @@ pub fn decode_keys(raw_resp: &[u8]) -> Vec<ButtonAssignment> {
         return defaults;
     }
     let slice = &resp[8..];
+    if slice[0] != 32 && slice[0] != 33 && slice[0] != 48 && slice[0] != 16 {
+        return defaults;
+    }
     let mut out = Vec::with_capacity(6);
     for i in 0..6 {
         let raw_type = slice[4 * i];
@@ -434,7 +442,7 @@ pub fn decode_keys(raw_resp: &[u8]) -> Vec<ButtonAssignment> {
         let code1 = slice[4 * i + 1];
         let code2 = slice[4 * i + 2];
         let code3 = slice[4 * i + 3];
-        if r#type == 0 || r#type == 255 {
+        if r#type != 16 && r#type != 32 && r#type != 33 && r#type != 48 && r#type != 240 {
             out.push(defaults[i].clone());
         } else {
             out.push(ButtonAssignment {
