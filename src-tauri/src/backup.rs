@@ -159,9 +159,14 @@ pub fn validate_and_sanitize_entry(entry: &mut MouseBackupEntry) -> Result<(), S
             if i == 0 && existing.r#type == 32 && existing.code1 == 0 {
                 normalized_buttons.push(defaults[0].clone());
             } else {
+                let safe_type = if existing.r#type == 64 {
+                    16
+                } else {
+                    existing.r#type
+                };
                 let label = if existing.name.trim().is_empty() {
                     button_label_from_codes(
-                        existing.r#type,
+                        safe_type,
                         existing.code1,
                         existing.code2,
                         existing.code3,
@@ -172,7 +177,7 @@ pub fn validate_and_sanitize_entry(entry: &mut MouseBackupEntry) -> Result<(), S
                 normalized_buttons.push(ButtonAssignment {
                     index: i,
                     name: label,
-                    r#type: existing.r#type,
+                    r#type: safe_type,
                     code1: existing.code1,
                     code2: existing.code2,
                     code3: existing.code3,
